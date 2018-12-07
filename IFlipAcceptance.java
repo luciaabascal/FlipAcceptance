@@ -8,15 +8,24 @@ public class IFlipAcceptance {
 	private int MIDDLE_VALUE = 4;
 	private int NUM_OF_NEIGHBORS = 0;
 
+	// Debug variable to print info messages
 	private boolean debug = true;
 	
+	// Number of neighbors array for each neighbor level
 	private int[] numOfNeighborsArray  = null;
 	
-	private float energy[][] = null; // Array of Neighborhoods X energy
+	// Energy Array for each neighbor and position level
+	// Neighborhoods X energy
+	private float energy[][] = null;
 
+	// Lattice pointer
 	private int lattice[][] = null;
+	
+	// Lattice size
 	private int L = 0;
-	private Random generator = null;
+	
+	// Random number generator
+	private Random RandomGenerator = null;
 	
 	// neighbors position to obtain the energy
 	// This array is composed by raw data in this order:
@@ -24,21 +33,34 @@ public class IFlipAcceptance {
 	// Second neight...
 	private ArrayList<Integer> neighborsPosition = new ArrayList<Integer>();
 	
+	/**
+	 * IFlipAcceptance
+	 * Constructor
+	 * @param lattice Lattice pointer
+	 * @param J Array of J values for each neighbor level
+	 */
 
 	public IFlipAcceptance (int[][] lattice, float []J) {
 		this.J = J;
 		
-		this.L = lattice[0].length-1;
+		this.L = lattice[0].length;
 		
 		this.lattice = lattice;
 		
 		this.NUM_OF_NEIGHBORS = J.length;
 		
-		this.generator = new Random(6969);
+		this.RandomGenerator = new Random(6969);
 		
 		this.energy = this.computeEnergyArray(J);
 	}
 
+	/**
+	 * getNumberOfNeighbors
+	 * Return a array with the number of neighbors in each position, for position 0, first
+	 * neighbors number.
+	 * For example [4,4,4,8] for 1st, 2nd, 3th, 4th neighbors 
+	 * @return{int[]} Array with the number of neighbors in each position.
+	 */
 	private int[] getNumberOfNeighbors() {
 		// Get neighborhood radius
 		int max = 10;
@@ -88,15 +110,20 @@ public class IFlipAcceptance {
 				}
 
 				// Check if a^2+b^2 = r^2 
-				if (a*a+b*b == rSquared) {
+				if (a * a + b * b == rSquared) {
+					
+					// If a or b is 0, then we have only 'a half' of spin
 					if (a == 0 || b == 0) {
-						if (this.debug) {
-							System.out.println("[DEBUG] IN" );
-						}
 						numOfNeighbors += 0.5;
 					} else {
-						numOfNeighbors++ ;
+						numOfNeighbors++;
 					}
+					
+					// Neighbor determination array
+					
+					// In case of a or b is zero, the neighbors generation 
+					// may be generate once for all quadrants. In other case
+					// it will counted twice.
 					
 					if (a == 0) {
 						continue;
@@ -118,10 +145,10 @@ public class IFlipAcceptance {
 						// Fourth quadrant
 						neighborsPosition.add(-a); // X position
 						neighborsPosition.add(b); // Y position
-						continue;
-						
+						continue; // Next step
 						
 					}
+					
 					// First quadrant
 					neighborsPosition.add(a); // X position
 					neighborsPosition.add(b); // Y position
@@ -172,6 +199,25 @@ public class IFlipAcceptance {
 		this.MIDDLE_VALUE = MAX_VAL_OF_NEIGHBORS;
 		return numOfNeighborsArr;
 	}
+	
+	// Generate array of energy for each neighbor:
+	/**
+	 * computeEnergyArray
+	 * Computes the probability due to energy for each neighbor level and possible value of spin configuration.
+	 * Possibles positions are (for 8 neighbors):
+	 * Spin Energy probability
+	 * -8	1
+	 * -6	1
+	 * -4	1
+	 * -2	1
+	 *  0	1
+	 *  2	exp(-2J*2)
+	 *  4	exp(-2J*4)
+	 *  6	exp(-2J*6)
+	 *  8	exp(-2J*8)
+	 * @param{float} 		J Array of J value for each neighbor level 
+	 * @return{float[][]} 	A two dimension float array of neighbor level X energy
+	 */
 
 	private float[][] computeEnergyArray (float []J) {
 
@@ -192,7 +238,7 @@ public class IFlipAcceptance {
 			
 			energyArray[i] = new float[2*this.MIDDLE_VALUE + 1];
 
-			for (int j = -nOfNeighbors; j<=nOfNeighbors; j++) {
+			for (int j = -nOfNeighbors; j<=nOfNeighbors; j+=2) {
 				if (j > 0) {
 					energyArray[i][this.MIDDLE_VALUE + j] = (float)Math.exp(-2 * J[i] * j);
 				} else {
@@ -210,6 +256,13 @@ public class IFlipAcceptance {
 
 	}
 	
+	/**
+	 * doIAccept
+	 * Decides whether a given spin in lattice should flip or not
+	 * @param{int} x position of spin in lattice
+	 * @param{int} y position of spin in lattice
+	 * @return{Boolean} Whether spin flips or not
+	 */
 	public boolean doIAccept(int x, int y) {
 		
 		int neightborPositionPointer = 0;
@@ -227,15 +280,41 @@ public class IFlipAcceptance {
 				int dx = this.neighborsPosition.get(neightborPositionPointer++);
 				int dy = this.neighborsPosition.get(neightborPositionPointer++);
 				
-				//sSystem.out.println("Dx = "+ dx + ", dy = " + dy + " val = " + this.lattice[x + dx][y + dy]);
+				//System.out.println(dx + "," + dy);
 				
-				ien += this.lattice[(this.L + (x + dx))%this.L][(this.L + (y + dy))%this.L];
+				int xPos = x + dx;
+				int yPos = y + dy;
+				
+				// Ciclic boundary
+				if (xPos >= this.L) {
+					xPos -= this.L;
+				}
+				
+				if (xPos < 0) {
+					xPos += this.L;
+				}
+				
+				if (yPos >= this.L) {
+					yPos -= this.L;
+				}
+				
+				if (yPos < 0) {
+					yPos += this.L;
+				}
+				
+				//System.out.println("Neightbor = " + xPos + ", " + yPos);
+				ien += this.lattice[xPos][yPos];
+				
+				//System.out.println("["+x+","+y+"][" + xPos + ", " + yPos + "] " + this.lattice[xPos][yPos]);
 			}
-		//	System.out.println("IEN = " + ien + ", ICI = " + ici);
-			totalProbability*=this.energy[i][this.MIDDLE_VALUE + ien*ici];
+
+			
+			
+			totalProbability *= this.energy[i][this.MIDDLE_VALUE + ien * ici];
+			
 		}
 	
 		//System.out.println("Probability = "+ totalProbability);
-		return this.generator.nextFloat() < totalProbability;
+		return this.RandomGenerator.nextFloat() < totalProbability;
 	}
 }
