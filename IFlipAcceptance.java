@@ -1,12 +1,14 @@
-package r2ms;
-//package r2ms.IFlipAcceptance.modW;
+
+package r2ms.flip.modW;
+
+
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
 import java.lang.Math;
 
-public class IFlipAcceptance {
+public class W {
 	private float J[] = null;
 	private int MIDDLE_VALUE = 4;
 	private int NUM_OF_NEIGHBORS = 0;
@@ -49,7 +51,7 @@ public class IFlipAcceptance {
 	 * @param J Array of J values for each neighbor level
 	 */
 
-	public IFlipAcceptance (int[][] lattice, float []J, float H) {
+	public W (int[][] lattice, float []J, float H) {
 		this.J = J;
 		
 		this.L = lattice[0].length;
