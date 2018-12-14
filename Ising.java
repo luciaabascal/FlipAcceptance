@@ -1,3 +1,4 @@
+package r2ms;
 import java.util.Random;
 import java.util.Scanner;
 import java.io.FileNotFoundException;
@@ -6,18 +7,15 @@ import java.io.PrintWriter;
 import java.io.File;
 
 /**
+
 *
-* Java version of the FORTRAN program that implements the solution to the ising problem.
-*
-* @author Clara Lasaosa García, David Iglesias Sánchez and Lucía Abascal Ceruti
 */
 
 public class Ising {
 
   /**
-   *  Main class
-   *  This class computes a system formed by spins like atoms with first neightborhood interation aproximation.
-   *
+   * Main
+   * @param args
    */
   public static void main(String[] args) {
     
@@ -29,9 +27,9 @@ public class Ising {
 
     float Jkt;
     float external_magnetic_field; //External magnetic field
-    int energy; //Energy
+    float energy; //Energy
     
-    int i, j, mcs, L;
+    int i, j, L;
     int nsample, ndelta, nequil, mcsmax; //Simulation steps; Ndelta steps; Nequil steps for thermalization; mcsmax Maximum number of MC Steps.
 
     int ien, ici, m; //Initial magnetic moment
@@ -95,61 +93,6 @@ public class Ising {
     external_magnetic_field = sc.nextFloat();
     
 
-    // Neighbor determination arrays
-
-    for (i=0; i<L; i++) {
-       ip[i] = i+1;
-       im[i] = i-1;
-       if (im[i] < 0) {
-        im[i] += L;
-       }
-       if (ip[i] >= L) {
-        ip[i] -= L;
-       }
-    }
-
-    // Implement the periodic boundary conditions
-    ip[L-1] = 1;
-    im[1] = L-1;
-
-    //
-    // Lookup table for energy changes
-    //
-    System.out.format("Net neighbor magnetization -- Flip probability");
-    // See page 73 of "A guide to MonteCarlo simulations in Statistical Physics"
-    // by David P. Landau and K. Binder
-    // For each spin there are only a small number of different environments
-    // which are possible
-    // For a square lattice with nearest neighbour interaction,
-    // each spin might have 4, 3, 2, 1, or 0 nearest neighbours that
-    // are parallel to it.
-    // Thus, there are only 5 different energy changes associated
-    // with a succesful spin flip and the probability can be computed
-    // for each possibility and stored in a table. 
-    // Since the exponential then need not be computed for each spin-flip trial,
-    // a tremendous saving in CPU time results.
-    // 
-    // The first  value of this loop: i = -4 : four neighbours  parallel
-    // The second value of this loop: i = -2 : three neighbours parallel 
-    // The third  value of this loop: i =  0 : two neighbours parallel
-    // The fourth value of this loop: i = +2 : one neighbour parallel
-    // The fifth  value of this loop: i = +4 : zero neighbour parallel
-    for(i = 0; i<=8; i+=2) {
-
-      // Omega is the probability of accept the spin-flip.
-      // In principle, all the spin flips that decrease the energy
-      // are accepted.
-      // So, we set up this variable to 1.0
-       w[i] = 1.0f;
-
-        // If $\Delta E > 0$, then compute $exp(-\Delta E/k_{b}T)$
-        if (i > 4){ w[i] = (float)Math.exp(-2.0f*Jkt*(i-4)); } // i-4 to obtain 0 energy in 4th position
-
-        // Print the probability table
-        System.out.format("%d -- %f\n", i-4, w[i]);
-
-    }
-
     //
     // Initialize lattice. For the first steps, all the spins are pointing down
     //
@@ -199,53 +142,28 @@ public class Ising {
     
     
     // IFlipAcceptance
-    float[] JJ = {Jkt}; 
-    IFlipAcceptance twest = new IFlipAcceptance(lattice, JJ);
+    float[] JJ = {Jkt, (float)0.1 * Jkt }; 
+    IFlipAcceptance flipAcceptance = new IFlipAcceptance(lattice, JJ, external_magnetic_field);
     
-    // Main loop in order to calculate the energi for each sweep
-    for(mcs=1; mcs<=mcsmax; mcs++) {
+    // Main loop in order to calculate the energy for each sweep
+    for(int mcs = 1; mcs <= mcsmax; mcs++) {
 
-      // For each loop, compute the lattice energy for first neightborhood
+      // For each loop, compute the lattice energy for first neightbor
      for (i = 0; i<L; i++) {
 
         for (j = 0; j<L; j++) {
 
-            // For every single point of the lattice, look at the value of the spin for that point
-            ici = lattice[i][j];
-
-            // Get the values of first neightborhood spins
-            ien = lattice[ip[i]][j];
-            ien += lattice[im[i]][j];
-            ien += lattice[i][ip[j]];
-            ien += lattice[i][im[j]];
-            
-            
-           /* System.out.println("R["+i+","+j+"][" + ip[i]+ ", " + j + "] " + lattice[ip[i]][j]);
-            System.out.println("R["+i+","+j+"][" + i+ ", " + ip[j] + "] " + lattice[i][ip[j]]);
-            System.out.println("R["+i+","+j+"][" + i+ ", " + im[j] + "] " + lattice[i][im[j]]);
-            
-            
-            System.out.println("R["+i+","+j+"][" + im[i]+ ", " + j + "] " + lattice[im[i]][j]);*/
-            
-            
-            int k = ien;
-
-            // Get the spin interation in order to obtain the energy
-            ien = ien*ici;
 
 
-            // Test whether we should flip the spin
-            // and in that case update mag and energy
-            // A 4 is added to w 'cause ien are in range -4 to +4, but w is in range 0 to 8.
-            if (twest.doIAccept(i, j)) {
-
-              // If the switch is accepted, then revert the sign of the
-              // spin in this lattice point
+            // Check if spin flips
+            if (flipAcceptance.doIAccept(i, j)) {
+            	ici = lattice[i][j];
+              // Spin flip if is accepted
               lattice[i][j] = -ici;
 
               // Update the value of the energy
               // The factor of 2 is for the double counting
-              energy = energy + 2*ien;
+              energy = energy + flipAcceptance.getEnergyChange();
 
               // Update the value of the magnetic moment
               // If initially all the magnetic moments are pointing down,

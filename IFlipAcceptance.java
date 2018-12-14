@@ -1,3 +1,6 @@
+package r2ms;
+//package r2ms.IFlipAcceptance.modW;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
@@ -9,7 +12,8 @@ public class IFlipAcceptance {
 	private int NUM_OF_NEIGHBORS = 0;
 
 	// Debug variable to print info messages
-	private boolean debug = true;
+	// DEFAULT: false
+	private boolean debug = false;
 	
 	// Number of neighbors array for each neighbor level
 	private int[] numOfNeighborsArray  = null;
@@ -24,6 +28,9 @@ public class IFlipAcceptance {
 	// Lattice size
 	private int L = 0;
 	
+	// External magnetic field
+	private float H = 0;
+	
 	// Random number generator
 	private Random RandomGenerator = null;
 	
@@ -33,6 +40,8 @@ public class IFlipAcceptance {
 	// Second neight...
 	private ArrayList<Integer> neighborsPosition = new ArrayList<Integer>();
 	
+	private float energyChange = 0;
+	
 	/**
 	 * IFlipAcceptance
 	 * Constructor
@@ -40,10 +49,12 @@ public class IFlipAcceptance {
 	 * @param J Array of J values for each neighbor level
 	 */
 
-	public IFlipAcceptance (int[][] lattice, float []J) {
+	public IFlipAcceptance (int[][] lattice, float []J, float H) {
 		this.J = J;
 		
 		this.L = lattice[0].length;
+		
+		this.H = H;
 		
 		this.lattice = lattice;
 		
@@ -54,6 +65,45 @@ public class IFlipAcceptance {
 		this.energy = this.computeEnergyArray(J);
 	}
 
+	
+	/**
+	 * 
+	 */
+	private ArrayList<Integer> radiusOfNeighbors(int NUMBER_OF_NEIGHBORS) {
+		
+		System.out.print("Getting for  " + NUMBER_OF_NEIGHBORS + " neighbors");
+		ArrayList<Integer> neighborsR = new ArrayList<Integer>();
+	
+		int ini = 0;
+		int max = 1;
+		while (neighborsR.size() < NUMBER_OF_NEIGHBORS) {
+			
+			for (int a = ini; a < max; a++) {
+				for (int b = ini; b < max; b++) {
+					int r = a * a + b * b;
+					
+					// If radius is zero, its the central spin
+					if (r == 0) {
+						continue;
+					}
+		
+					// Add to neighbors only if its not added 
+					if ( !neighborsR.contains(r) ) {
+						neighborsR.add(r);
+					} 
+				}
+			}
+			ini = max;
+			max += max;
+		}
+		
+		return neighborsR;
+		
+	}
+	
+	public float getEnergyChange() {
+		return this.energyChange;
+	}
 	/**
 	 * getNumberOfNeighbors
 	 * Return a array with the number of neighbors in each position, for position 0, first
@@ -63,22 +113,9 @@ public class IFlipAcceptance {
 	 */
 	private int[] getNumberOfNeighbors() {
 		// Get neighborhood radius
-		int max = 10;
-		ArrayList<Integer> neighborhoodsR = new ArrayList<Integer>();
+		
 
-		for (int a = 0; a < max; a++) {
-			for (int b = 0; b < max; b++) {
-				int r = a * a + b * b;
-				if (r == 0) { // Pasar del 0, soy yo
-					continue;
-				}
-
-				if ( !neighborhoodsR.contains(r) ) {
-					neighborhoodsR.add(r);
-				} 
-			}
-		}
-
+		ArrayList<Integer> neighborhoodsR = this.radiusOfNeighbors(this.NUM_OF_NEIGHBORS);
 		Collections.sort(neighborhoodsR);
 
 		int[] numOfNeighborsArr = new int[this.NUM_OF_NEIGHBORS];
@@ -267,6 +304,8 @@ public class IFlipAcceptance {
 		
 		int neightborPositionPointer = 0;
 		
+		float EChange = 0;
+		
 		float totalProbability = 1;
 		// Compute probability for each neighborhood
 		for (int i = 0; i<this.NUM_OF_NEIGHBORS; i++) {
@@ -274,18 +313,15 @@ public class IFlipAcceptance {
 			// For each neighborhood, compute the energy (get the value of each neighbor)
 			int NUM_OF_NEIGH = this.numOfNeighborsArray[i];
 			
-			int ici = this.lattice[(this.L + x)%this.L][(this.L + y)%this.L];
+			int ici = this.lattice[x][y];
 			int ien = 0;
 			for (int j = 0; j<NUM_OF_NEIGH; j++ ) {
-				int dx = this.neighborsPosition.get(neightborPositionPointer++);
-				int dy = this.neighborsPosition.get(neightborPositionPointer++);
+				int xPos = x + this.neighborsPosition.get(neightborPositionPointer++);
+				int yPos = y + this.neighborsPosition.get(neightborPositionPointer++);
 				
 				//System.out.println(dx + "," + dy);
 				
-				int xPos = x + dx;
-				int yPos = y + dy;
-				
-				// Ciclic boundary
+				// Ciclic boundary conditions
 				if (xPos >= this.L) {
 					xPos -= this.L;
 				}
@@ -305,14 +341,19 @@ public class IFlipAcceptance {
 				//System.out.println("Neightbor = " + xPos + ", " + yPos);
 				ien += this.lattice[xPos][yPos];
 				
+				
+				
+				
 				//System.out.println("["+x+","+y+"][" + xPos + ", " + yPos + "] " + this.lattice[xPos][yPos]);
 			}
 
-			
+			EChange += 2 * J[i] * ien;
 			
 			totalProbability *= this.energy[i][this.MIDDLE_VALUE + ien * ici];
 			
 		}
+		
+		this.energyChange = EChange;
 	
 		//System.out.println("Probability = "+ totalProbability);
 		return this.RandomGenerator.nextFloat() < totalProbability;
